@@ -40,7 +40,7 @@ func worker(path string, out chan<- Result) {
 	}
 }*/
 
-func SplitJob(input <-chan string) <-chan Result {
+func SplitJobs(input <-chan string) <-chan Result {
 	results := make(chan Result)
 	wg := sync.WaitGroup{}
 	for path := range input {
@@ -70,7 +70,7 @@ func main() {
 		jobs <- "file3.txt"
 	}()
 
-	results := SplitJob(jobs)
+	results := SplitJobs(jobs)
 	total := 0
 	for result := range results {
 		if result.Err != nil {
