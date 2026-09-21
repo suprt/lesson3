@@ -8,15 +8,13 @@ import (
 
 func mergeChannels(channels ...<-chan int) <-chan int {
 	out := make(chan int)
-
-	var wg sync.WaitGroup
-	wg.Add(len(channels))
-
+	wg := sync.WaitGroup{}
 	for _, channel := range channels {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for n := range channel {
-				out <- n
+			for v := range channel {
+				out <- v
 			}
 		}()
 	}
