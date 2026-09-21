@@ -3,38 +3,30 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"time"
 )
 
 func main() {
 	naturals := make(chan int)
 	squares := make(chan int)
-
+	v := 10
 	go func() {
+		defer close(naturals)
+		for range v {
 
-		for {
-			time.Sleep(time.Duration(rand.Intn(400)+100) * time.Millisecond)
 			naturals <- rand.Intn(100)
 		}
 	}()
 
 	go func() {
-
-		for {
-
-			n := <-naturals
+		defer close(squares)
+		for n := range naturals {
 			squares <- n * n
 
 		}
 	}()
-	go func() {
 
-		for {
+	for s := range squares {
+		fmt.Println(s)
+	}
 
-			n := <-squares
-			fmt.Println(n)
-
-		}
-	}()
-	select {}
 }
