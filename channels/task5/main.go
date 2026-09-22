@@ -3,14 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
-)
-
-var (
-	workersLimit = runtime.NumCPU() //Ограничение на количество воркеров;
 )
 
 type Result struct {
@@ -46,7 +41,7 @@ func worker(path string, out chan<- Result) {
 	}
 }*/
 
-func SplitJobs(input <-chan string) <-chan Result {
+func SplitJobs(input <-chan string, workersLimit int) <-chan Result {
 	results := make(chan Result)
 	wg := sync.WaitGroup{}
 
@@ -70,6 +65,7 @@ func SplitJobs(input <-chan string) <-chan Result {
 }
 
 func main() {
+	workersLimit := 4
 	start := time.Now()
 	jobs := make(chan string)
 	go func() {
@@ -79,7 +75,7 @@ func main() {
 		jobs <- "file3.txt"
 	}()
 
-	results := SplitJobs(jobs)
+	results := SplitJobs(jobs, workersLimit)
 	total := 0
 	for result := range results {
 		if result.Err != nil {
