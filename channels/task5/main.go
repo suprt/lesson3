@@ -3,9 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	workersLimit = runtime.NumCPU() //Ограничение на количество воркеров;
 )
 
 type Result struct {
@@ -21,6 +26,7 @@ func worker(path string, out chan<- Result) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		out <- Result{path, 0, err}
+		return
 	}
 	out <- Result{path, countWords(string(data)), nil}
 }
@@ -43,12 +49,15 @@ func worker(path string, out chan<- Result) {
 func SplitJobs(input <-chan string) <-chan Result {
 	results := make(chan Result)
 	wg := sync.WaitGroup{}
-	for path := range input {
-		wg.Add(1)
 
+	for range workersLimit {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			worker(path, results)
+			for path := range input {
+				worker(path, results)
+			}
+
 		}()
 	}
 
@@ -84,28 +93,27 @@ func main() {
 
 	fmt.Printf("Total: %d\n", total)
 	fmt.Println(time.Since(start))
-	/*
-		start = time.Now()
-		files := []string{
-			"file1.txt",
-			"file2.txt",
-			"file3.txt",
+	/*start = time.Now()
+	files := []string{
+		"file1.txt",
+		"file2.txt",
+		"file3.txt",
+	}
+
+	total = 0
+
+	for _, path := range files {
+		result := altWorker(path)
+
+		if result.Err != nil {
+			fmt.Printf("%s: %v\n", result.File, result.Err)
+			continue
 		}
 
-		total = 0
+		fmt.Printf("%s: %d words\n", result.File, result.Count)
+		total += result.Count
+	}
 
-		for _, path := range files {
-			result := altWorker(path)
-
-			if result.Err != nil {
-				fmt.Printf("%s: %v\n", result.File, result.Err)
-				continue
-			}
-
-			fmt.Printf("%s: %d words\n", result.File, result.Count)
-			total += result.Count
-		}
-
-		fmt.Println("Total:", total)
-		fmt.Println(time.Since(start))*/
+	fmt.Println("Total:", total)
+	fmt.Println(time.Since(start))*/
 }
