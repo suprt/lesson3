@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+/*
+Сделал несколько реализаций ProccessString - тестировал разницу в количестве аллокаций
+*/
+
 var bufPool = sync.Pool{
 	New: func() any {
 		return new([]byte)
@@ -23,6 +27,28 @@ func ProcessString(s string) string {
 	res := string(*buf)
 
 	bufPool.Put(buf)
+
+	return res
+}
+
+var bufPoolSecond = sync.Pool{
+	New: func() any {
+		return []byte{}
+	},
+}
+
+func ProcessStringPoolValue(s string) string {
+	buf := bufPoolSecond.Get().([]byte)
+	buf = (buf)[:0]
+	for _, v := range s {
+		if v >= 'a' && v <= 'z' {
+			v = v - ('a' - 'A')
+		}
+		buf = append(buf, byte(v))
+	}
+	res := string(buf)
+
+	bufPoolSecond.Put(buf)
 
 	return res
 }

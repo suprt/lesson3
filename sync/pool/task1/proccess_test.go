@@ -22,6 +22,12 @@ func TestAllocations(t *testing.T) {
 		}
 	})
 
+	allocsNotPointer := testing.AllocsPerRun(100, func() {
+		for i := 0; i < 1000; i++ {
+			result = ProcessStringPoolValue(s)
+		}
+	})
 	t.Logf("Pool: %.0f allocations", allocsPool)
 	t.Logf("No Pool: %.0f allocations", allocsNoPool)
+	t.Logf("Not Pointer: %.0f allocations", allocsNotPointer)
 }
