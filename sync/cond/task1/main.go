@@ -70,7 +70,6 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	//Producer
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -88,7 +87,6 @@ func main() {
 		}
 	}()
 
-	// Consumer
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
