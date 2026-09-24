@@ -5,25 +5,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type ObjectCache struct {
-	mu      sync.RWMutex
-	items   map[string]cacheItem
-	ttl     time.Duration
-	bufPool sync.Pool
+	mu       sync.RWMutex
+	items    map[string]*cacheItem
+	ttlNanos int64
+	bufPool  sync.Pool
 }
 
 type cacheItem struct {
-	Value     any
-	ExpiresAt time.Time
+	Value      any
+	LastAccess atomic.Int64
+}
+
+func (ci *cacheItem) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Value      any       `json:"value"`
+		LastAccess time.Time `json:"lastAccess"`
+		//LastAccess int64 `json:"lastAccess"`
+	}{
+		Value:      ci.Value,
+		LastAccess: time.Unix(0, ci.LastAccess.Load()),
+		//Если требуется выводить время без форматирования
+		//LastAccess: ci.LastAccess.Load()
+	})
 }
 
 func NewObjectCache(ttl time.Duration) *ObjectCache {
 	c := &ObjectCache{
-		ttl:   ttl,
-		items: make(map[string]cacheItem),
+		ttlNanos: ttl.Nanoseconds(),
+		items:    make(map[string]*cacheItem),
 	}
 	c.bufPool.New = func() any {
 		return new(bytes.Buffer)
@@ -37,18 +51,18 @@ func (c *ObjectCache) cleanup() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	type expiredKey struct {
-		key string
-		exp time.Time
+		key        string
+		lastAccess int64
 	}
 
 	for range ticker.C {
 		expired := make([]expiredKey, 0)
-		now := time.Now()
+		now := time.Now().UnixNano()
 		c.mu.RLock()
 
 		for k, v := range c.items {
-			if now.After(v.ExpiresAt) {
-				expired = append(expired, expiredKey{k, v.ExpiresAt})
+			if now > v.LastAccess.Load()+c.ttlNanos {
+				expired = append(expired, expiredKey{k, v.LastAccess.Load()})
 			}
 		}
 		c.mu.RUnlock()
@@ -61,7 +75,7 @@ func (c *ObjectCache) cleanup() {
 
 		for _, v := range expired {
 			item, ok := c.items[v.key]
-			if ok && item.ExpiresAt == v.exp {
+			if ok && item.LastAccess.Load() == v.lastAccess {
 				delete(c.items, v.key)
 			}
 		}
@@ -72,24 +86,26 @@ func (c *ObjectCache) cleanup() {
 
 func (c *ObjectCache) Set(key string, value any) {
 	c.mu.Lock()
-	c.items[key] = cacheItem{value, time.Now().Add(c.ttl)}
+	now := time.Now().UnixNano()
+	item := &cacheItem{Value: value}
+	item.LastAccess.Store(now)
+	c.items[key] = item
 	c.mu.Unlock()
 }
 
 func (c *ObjectCache) Get(key string) (any, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	item, ok := c.items[key]
-
-	if !ok || time.Now().After(item.ExpiresAt) {
+	now := time.Now().UnixNano()
+	if !ok || (now > item.LastAccess.Load()+c.ttlNanos) {
 		return nil, false
 	}
 
-	item.ExpiresAt = time.Now().Add(c.ttl)
-	c.items[key] = item
+	item.LastAccess.Store(now)
 
-	return item.Value, ok
+	return item.Value, true
 }
 
 func (c *ObjectCache) Delete(key string) {
@@ -122,7 +138,7 @@ func main() {
 	// Добавляем данные в кэш
 	cache.Set("user:1", map[string]string{"name": "Alice", "role": "admin"})
 	cache.Set("user:2", map[string]string{"name": "Bob", "role": "user"})
-
+	time.Sleep(time.Second)
 	// Получаем объект
 	if user, found := cache.Get("user:1"); found {
 		fmt.Println("Найден:", user)
