@@ -44,8 +44,8 @@ func (r *RequestData) Reset() {
 func main() {
 
 	http.HandleFunc("/", handleRequest)
-	fmt.Println("Server started at :8081")
-	err := http.ListenAndServe(":8081", nil)
+	fmt.Println("Server started at :8080")
+	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Println(err)
 		return
