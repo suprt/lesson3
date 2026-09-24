@@ -106,8 +106,8 @@ func main() {
 		}
 	}()
 
-	//time.Sleep(1 * time.Second)
-	//q.Shutdown()
+	time.Sleep(1 * time.Second)
+	q.Shutdown()
 
 	wg.Wait()
 
