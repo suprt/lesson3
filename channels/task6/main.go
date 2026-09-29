@@ -18,9 +18,15 @@ func dbReplica(name string, in <-chan int) {
 func Tee(in <-chan int, out []chan int) {
 
 	for data := range in {
-		for _, outChan := range out {
-			outChan <- data
+		var wg sync.WaitGroup
+		wg.Add(len(out))
+		for _, ch := range out {
+			go func(ch chan int) {
+				defer wg.Done()
+				ch <- data
+			}(ch)
 		}
+		wg.Wait()
 	}
 	for _, outChan := range out {
 		close(outChan)
